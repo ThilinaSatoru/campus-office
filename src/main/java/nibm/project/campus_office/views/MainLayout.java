@@ -6,13 +6,19 @@ import com.vaadin.flow.component.html.H1;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouterLink;
 import jakarta.annotation.security.PermitAll;
 import nibm.project.campus_office.service.SecurityService;
+import nibm.project.campus_office.views.Dashboard.DashboardView;
+import nibm.project.campus_office.views.course.CourseListView;
+import nibm.project.campus_office.views.enroll.EnrollmentListView;
+import nibm.project.campus_office.views.instructor.InstructorListView;
+import nibm.project.campus_office.views.interactions.InteractionListView;
+import nibm.project.campus_office.views.payments.PaymentListView;
+import nibm.project.campus_office.views.sudent.StudentListView;
 import org.springframework.beans.factory.annotation.Autowired;
 
-@Route("")
+//@Route("")
 @PermitAll
 public class MainLayout extends AppLayout {
 
@@ -41,11 +47,13 @@ public class MainLayout extends AppLayout {
 
     private void createDrawer() {
         addToDrawer(new VerticalLayout(
-//                new RouterLink("Dashboard", DashboardView.class),
-//                new RouterLink("Students", StudentListView.class),
-//                new RouterLink("Courses", CourseListView.class),
-//                new RouterLink("Instructors", InstructorListView.class),
-//                new RouterLink("Payments", PaymentListView.class)
+                new RouterLink("Dashboard", DashboardView.class),
+                new RouterLink("Students", StudentListView.class),
+                new RouterLink("Courses", CourseListView.class),
+                new RouterLink("Instructors", InstructorListView.class),
+                new RouterLink("Enrollments", EnrollmentListView.class),
+                new RouterLink("Interactions", InteractionListView.class),
+                new RouterLink("Payments", PaymentListView.class)
         ));
     }
 }
