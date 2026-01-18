@@ -2,7 +2,7 @@ package nibm.project.campus_office.config;
 
 import com.vaadin.flow.spring.security.VaadinWebSecurity;
 import lombok.extern.slf4j.Slf4j;
-import nibm.project.campus_office.service.UserDetailsServiceImpl;
+import nibm.project.campus_office.security.UserDetailsServiceImpl;
 import nibm.project.campus_office.views.LoginView;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -12,7 +12,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 

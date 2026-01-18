@@ -28,7 +28,7 @@ public class Course extends BaseEntity {
     private Integer credits;
     private Integer durationWeeks;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "instructor_id")
     private Instructor instructor;
 

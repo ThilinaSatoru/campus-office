@@ -1,4 +1,4 @@
-package nibm.project.campus_office.service;
+package nibm.project.campus_office.security;
 
 import nibm.project.campus_office.entity.User;
 import nibm.project.campus_office.repository.UserRepository;

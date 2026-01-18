@@ -17,7 +17,7 @@ import java.time.LocalDate;
 @Builder
 public class Payment extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
