@@ -15,11 +15,11 @@ import java.time.LocalDate;
 @Builder
 public class Enrollment extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 

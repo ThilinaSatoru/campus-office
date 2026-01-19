@@ -1,8 +1,12 @@
 package nibm.project.campus_office.views.sudent;
 
 import com.vaadin.flow.component.Component;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -10,11 +14,14 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
+import com.vaadin.flow.server.VaadinSession;
 import jakarta.annotation.security.PermitAll;
 import nibm.project.campus_office.entity.Student;
 import nibm.project.campus_office.repository.StudentRepository;
 import nibm.project.campus_office.views.MainLayout;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,13 +30,16 @@ import java.util.stream.Collectors;
 @PermitAll
 public class StudentListView extends VerticalLayout {
 
-    private final StudentRepository studentRepo;
+    private final StudentRepository studentRepository;
     private final Grid<Student> grid = new Grid<>(Student.class, false);
     private final TextField filterText = new TextField();
     private StudentForm form;
 
-    public StudentListView(StudentRepository studentRepo) {
-        this.studentRepo = studentRepo;
+    private final StudentReportPdfGenerator pdfGenerator;
+
+    public StudentListView(StudentRepository studentRepository, StudentReportPdfGenerator pdfGenerator) {
+        this.studentRepository = studentRepository;
+        this.pdfGenerator = pdfGenerator;
         setSizeFull();
 
         configureGrid();
@@ -51,6 +61,14 @@ public class StudentListView extends VerticalLayout {
         grid.addColumn(Student::getStatus).setHeader("Status");
         grid.addColumn(s -> s.getEnrollmentDate() != null ? s.getEnrollmentDate().toString() : "")
                 .setHeader("Enrollment Date");
+
+        grid.addComponentColumn(student -> {
+            Button downloadBtn = new Button(new Icon(VaadinIcon.DOWNLOAD));
+            downloadBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            downloadBtn.addClickListener(e -> downloadStudentReport(student));
+            downloadBtn.getElement().setAttribute("aria-label", "Download PDF");
+            return downloadBtn;
+        }).setHeader("Actions").setAutoWidth(true);
 
         grid.getColumns().forEach(col -> col.setAutoWidth(true));
         grid.asSingleSelect().addValueChangeListener(e -> editStudent(e.getValue()));
@@ -88,7 +106,7 @@ public class StudentListView extends VerticalLayout {
     }
 
     private void updateList() {
-        List<Student> students = studentRepo.findAll();
+        List<Student> students = studentRepository.findAll();
         if (!filterText.isEmpty()) {
             String filter = filterText.getValue().toLowerCase();
             students = students.stream()
@@ -121,16 +139,39 @@ public class StudentListView extends VerticalLayout {
     }
 
     private void saveStudent(StudentForm.SaveEvent event) {
-        studentRepo.save(event.getStudent());
+        studentRepository.save(event.getStudent());
         updateList();
         closeEditor();
         Notification.show("Student saved successfully");
     }
 
     private void deleteStudent(StudentForm.DeleteEvent event) {
-        studentRepo.delete(event.getStudent());
+        studentRepository.delete(event.getStudent());
         updateList();
         closeEditor();
         Notification.show("Student deleted");
+    }
+
+    private void downloadStudentReport(Student student) {
+        try {
+            byte[] pdfBytes = pdfGenerator.generateStudentReport(student.getId());
+
+            StreamResource resource = new StreamResource(
+                    "student_report_" + student.getStudentId() + ".pdf",
+                    () -> new ByteArrayInputStream(pdfBytes)
+            );
+            resource.setContentType("application/pdf");
+
+            // Register the resource with the session
+            var registration = VaadinSession.getCurrent().getResourceRegistry().registerResource(resource);
+
+            // Open in new tab using the registered URL
+            UI.getCurrent().getPage().executeJs("window.open($0, '_blank')", registration.getResourceUri().toString());
+
+            Notification.show("Opening report in new tab");
+        } catch (Exception e) {
+            Notification.show("Error generating report: " + e.getMessage(), 3000, Notification.Position.MIDDLE);
+            e.printStackTrace();
+        }
     }
 }

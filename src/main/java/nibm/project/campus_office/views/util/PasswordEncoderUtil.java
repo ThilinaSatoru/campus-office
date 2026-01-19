@@ -1,4 +1,4 @@
-package nibm.project.campus_office;
+package nibm.project.campus_office.views.util;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 

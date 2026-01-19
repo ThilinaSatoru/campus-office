@@ -37,10 +37,10 @@ public class Student extends BaseEntity {
     private LocalDate enrollmentDate;
     private LocalDate graduationDate;
 
-    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Enrollment> enrollments = new ArrayList<>();
 
-    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "student", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<Interaction> interactions = new ArrayList<>();
 
     @OneToMany(mappedBy = "student", cascade = CascadeType.ALL)

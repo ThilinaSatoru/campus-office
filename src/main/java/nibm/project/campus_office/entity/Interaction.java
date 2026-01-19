@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 public class Interaction extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 

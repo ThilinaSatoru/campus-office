@@ -23,6 +23,7 @@ import nibm.project.campus_office.views.instructor.InstructorListView;
 import nibm.project.campus_office.views.interactions.InteractionListView;
 import nibm.project.campus_office.views.payments.PaymentListView;
 import nibm.project.campus_office.views.sudent.StudentListView;
+import nibm.project.campus_office.views.user.UserListView;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 
@@ -105,6 +106,7 @@ public class MainLayout extends AppLayout {
         nav.addItem(new SideNavItem("Enrollments", EnrollmentListView.class, VaadinIcon.CLIPBOARD_TEXT.create()));
         nav.addItem(new SideNavItem("Interactions", InteractionListView.class, VaadinIcon.COMMENTS.create()));
         nav.addItem(new SideNavItem("Payments", PaymentListView.class, VaadinIcon.DOLLAR.create()));
+        nav.addItem(new SideNavItem("Users", UserListView.class, VaadinIcon.USER.create()));
 
         addToDrawer(nav);
     }
