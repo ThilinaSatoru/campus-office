@@ -27,4 +27,15 @@ public abstract class BaseEntity {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
