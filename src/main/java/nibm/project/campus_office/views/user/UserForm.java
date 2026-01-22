@@ -14,6 +14,10 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
+import com.vaadin.flow.data.validator.EmailValidator;
 import nibm.project.campus_office.entity.User;
 import nibm.project.campus_office.enums.UserRole;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,6 +40,7 @@ public class UserForm extends FormLayout {
     Button resetPassword = new Button("Reset Password");
     Button close = new Button("Cancel");
 
+    private final Binder<User> binder = new BeanValidationBinder<>(User.class);
     private User user;
     private boolean isNewUser = false;
     private final PasswordEncoder passwordEncoder;
@@ -49,8 +54,55 @@ public class UserForm extends FormLayout {
         enabled.setValue(true);
         accountNonLocked.setValue(true);
 
+        configureValidation();
+
         add(username, firstName, lastName, email, role, enabled, accountNonLocked,
                 createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // Username - Required
+        binder.forField(username)
+                .asRequired("Username is required")
+                .bind(User::getUsername, User::setUsername);
+        username.setHelperText("Enter unique username");
+
+        // First Name - Required
+        binder.forField(firstName)
+                .asRequired("First name is required")
+                .bind(User::getFirstName, User::setFirstName);
+        firstName.setHelperText("Enter user's first name");
+
+        // Last Name - Required
+        binder.forField(lastName)
+                .asRequired("Last name is required")
+                .bind(User::getLastName, User::setLastName);
+        lastName.setHelperText("Enter user's last name");
+
+        // Email - Required with format validation
+        binder.forField(email)
+                .asRequired("Email is required")
+                .withValidator(new EmailValidator("Invalid email format"))
+                .bind(User::getEmail, User::setEmail);
+        email.setHelperText("Enter valid email address");
+
+        // Role - Required
+        binder.forField(role)
+                .asRequired("Role is required")
+                .bind(User::getRole, User::setRole);
+        role.setHelperText("Select user role");
+
+        // Enabled
+        binder.forField(enabled)
+                .bind(User::getEnabled, User::setEnabled);
+
+        // Account Non Locked
+        binder.forField(accountNonLocked)
+                .bind(User::getAccountNonLocked, User::setAccountNonLocked);
+
+        // Password fields are validated separately for new users
+        password.setHelperText("Minimum 6 characters recommended");
+        confirmPassword.setHelperText("Re-enter password to confirm");
     }
 
     private Component createButtonsLayout() {
@@ -73,13 +125,7 @@ public class UserForm extends FormLayout {
         this.isNewUser = (user == null || user.getId() == null);
 
         if (user != null) {
-            username.setValue(user.getUsername() != null ? user.getUsername() : "");
-            firstName.setValue(user.getFirstName() != null ? user.getFirstName() : "");
-            lastName.setValue(user.getLastName() != null ? user.getLastName() : "");
-            email.setValue(user.getEmail() != null ? user.getEmail() : "");
-            role.setValue(user.getRole());
-            enabled.setValue(user.getEnabled() != null ? user.getEnabled() : true);
-            accountNonLocked.setValue(user.getAccountNonLocked() != null ? user.getAccountNonLocked() : true);
+            binder.readBean(user);
 
             // Show/hide password fields and reset button based on new/existing user
             if (isNewUser) {
@@ -112,37 +158,42 @@ public class UserForm extends FormLayout {
     }
 
     private void validateAndSave() {
-        if (user == null) user = new User();
-
-        // Validate required fields
-        if (username.isEmpty() || firstName.isEmpty() || lastName.isEmpty() ||
-                email.isEmpty() || role.isEmpty()) {
-            fireEvent(new ValidationErrorEvent(this, "Please fill all required fields"));
-            return;
-        }
-
-        // Validate password for new users
-        if (isNewUser) {
-            if (password.isEmpty() || confirmPassword.isEmpty()) {
-                fireEvent(new ValidationErrorEvent(this, "Password is required for new users"));
-                return;
+        try {
+            if (user == null) {
+                user = new User();
             }
-            if (!password.getValue().equals(confirmPassword.getValue())) {
-                fireEvent(new ValidationErrorEvent(this, "Passwords do not match"));
-                return;
+
+            // Validate password for new users
+            if (isNewUser) {
+                if (password.isEmpty()) {
+                    password.setErrorMessage("Password is required for new users");
+                    password.setInvalid(true);
+                    return;
+                }
+                if (confirmPassword.isEmpty()) {
+                    confirmPassword.setErrorMessage("Please confirm password");
+                    confirmPassword.setInvalid(true);
+                    return;
+                }
+                if (!password.getValue().equals(confirmPassword.getValue())) {
+                    confirmPassword.setErrorMessage("Passwords do not match");
+                    confirmPassword.setInvalid(true);
+                    return;
+                }
+
+                // Clear any previous errors
+                password.setInvalid(false);
+                confirmPassword.setInvalid(false);
+
+                user.setPassword(passwordEncoder.encode(password.getValue()));
             }
-            user.setPassword(passwordEncoder.encode(password.getValue()));
+
+            binder.writeBean(user);
+            fireEvent(new SaveEvent(this, user));
+
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
         }
-
-        user.setUsername(username.getValue());
-        user.setFirstName(firstName.getValue());
-        user.setLastName(lastName.getValue());
-        user.setEmail(email.getValue());
-        user.setRole(role.getValue());
-        user.setEnabled(enabled.getValue());
-        user.setAccountNonLocked(accountNonLocked.getValue());
-
-        fireEvent(new SaveEvent(this, user));
     }
 
     private void openResetPasswordDialog() {
@@ -152,15 +203,33 @@ public class UserForm extends FormLayout {
         PasswordField newPassword = new PasswordField("New Password");
         PasswordField confirmNewPassword = new PasswordField("Confirm New Password");
 
+        newPassword.setHelperText("Minimum 6 characters recommended");
+        confirmNewPassword.setHelperText("Re-enter password to confirm");
+
         Button resetButton = new Button("Reset", e -> {
-            if (newPassword.isEmpty() || confirmNewPassword.isEmpty()) {
-                fireEvent(new ValidationErrorEvent(this, "Please fill both password fields"));
-                return;
+            boolean isValid = true;
+
+            if (newPassword.isEmpty()) {
+                newPassword.setErrorMessage("Password is required");
+                newPassword.setInvalid(true);
+                isValid = false;
+            } else {
+                newPassword.setInvalid(false);
             }
-            if (!newPassword.getValue().equals(confirmNewPassword.getValue())) {
-                fireEvent(new ValidationErrorEvent(this, "Passwords do not match"));
-                return;
+
+            if (confirmNewPassword.isEmpty()) {
+                confirmNewPassword.setErrorMessage("Please confirm password");
+                confirmNewPassword.setInvalid(true);
+                isValid = false;
+            } else if (!newPassword.getValue().equals(confirmNewPassword.getValue())) {
+                confirmNewPassword.setErrorMessage("Passwords do not match");
+                confirmNewPassword.setInvalid(true);
+                isValid = false;
+            } else {
+                confirmNewPassword.setInvalid(false);
             }
+
+            if (!isValid) return;
 
             String hashedPassword = passwordEncoder.encode(newPassword.getValue());
             fireEvent(new PasswordResetEvent(this, user, hashedPassword));
@@ -209,19 +278,6 @@ public class UserForm extends FormLayout {
         }
     }
 
-    public static class ValidationErrorEvent extends ComponentEvent<UserForm> {
-        private final String message;
-
-        ValidationErrorEvent(UserForm source, String message) {
-            super(source, false);
-            this.message = message;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-    }
-
     public static class PasswordResetEvent extends UserFormEvent {
         private final String hashedPassword;
 
@@ -246,10 +302,6 @@ public class UserForm extends FormLayout {
 
     public void addCloseListener(ComponentEventListener<CloseEvent> listener) {
         addListener(CloseEvent.class, listener);
-    }
-
-    public void addValidationErrorListener(ComponentEventListener<ValidationErrorEvent> listener) {
-        addListener(ValidationErrorEvent.class, listener);
     }
 
     public void addPasswordResetListener(ComponentEventListener<PasswordResetEvent> listener) {

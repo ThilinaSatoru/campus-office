@@ -11,6 +11,9 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
 import nibm.project.campus_office.entity.Course;
 import nibm.project.campus_office.entity.Instructor;
 import nibm.project.campus_office.enums.CourseLevel;
@@ -31,6 +34,7 @@ public class CourseForm extends FormLayout {
     Button delete = new Button("Delete");
     Button close = new Button("Cancel");
 
+    private final Binder<Course> binder = new BeanValidationBinder<>(Course.class);
     private Course course;
 
     public CourseForm(List<Instructor> instructors) {
@@ -40,8 +44,60 @@ public class CourseForm extends FormLayout {
         instructor.setItems(instructors);
         instructor.setItemLabelGenerator(i -> i.getFirstName() + " " + i.getLastName());
 
+        configureValidation();
+
         add(courseCode, title, description, credits, durationWeeks, level, instructor,
                 createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // Course Code - Required
+        binder.forField(courseCode)
+                .asRequired("Course code is required")
+                .bind(Course::getCourseCode, Course::setCourseCode);
+        courseCode.setHelperText("Enter unique course code");
+
+        // Title - Required
+        binder.forField(title)
+                .asRequired("Title is required")
+                .bind(Course::getTitle, Course::setTitle);
+        title.setHelperText("Enter course title");
+
+        // Description
+        binder.forField(description)
+                .bind(Course::getDescription, Course::setDescription);
+        description.setHelperText("Enter course description");
+
+        // Credits - Required, must be positive
+        binder.forField(credits)
+                .asRequired("Credits is required")
+                .withValidator(value -> value != null && value > 0,
+                        "Credits must be greater than 0")
+                .bind(Course::getCredits, Course::setCredits);
+        credits.setHelperText("Enter credit hours (positive number)");
+        credits.setMin(1);
+        credits.setStepButtonsVisible(true);
+
+        // Duration Weeks - Required, must be positive
+        binder.forField(durationWeeks)
+                .asRequired("Duration is required")
+                .withValidator(value -> value != null && value > 0,
+                        "Duration must be greater than 0")
+                .bind(Course::getDurationWeeks, Course::setDurationWeeks);
+        durationWeeks.setHelperText("Enter course duration in weeks");
+        durationWeeks.setMin(1);
+        durationWeeks.setStepButtonsVisible(true);
+
+        // Level - Required
+        binder.forField(level)
+                .asRequired("Level is required")
+                .bind(Course::getLevel, Course::setLevel);
+        level.setHelperText("Select course level");
+
+        // Instructor
+        binder.forField(instructor)
+                .bind(Course::getInstructor, Course::setInstructor);
+        instructor.setHelperText("Assign instructor (optional)");
     }
 
     private Component createButtonsLayout() {
@@ -58,29 +114,19 @@ public class CourseForm extends FormLayout {
 
     public void setCourse(Course course) {
         this.course = course;
-        if (course != null) {
-            courseCode.setValue(course.getCourseCode() != null ? course.getCourseCode() : "");
-            title.setValue(course.getTitle() != null ? course.getTitle() : "");
-            description.setValue(course.getDescription() != null ? course.getDescription() : "");
-            credits.setValue(course.getCredits());
-            durationWeeks.setValue(course.getDurationWeeks());
-            level.setValue(course.getLevel());
-            instructor.setValue(course.getInstructor());
-        }
+        binder.readBean(course);
     }
 
     private void validateAndSave() {
-        if (course == null) course = new Course();
-
-        course.setCourseCode(courseCode.getValue());
-        course.setTitle(title.getValue());
-        course.setDescription(description.getValue());
-        course.setCredits(credits.getValue());
-        course.setDurationWeeks(durationWeeks.getValue());
-        course.setLevel(level.getValue());
-        course.setInstructor(instructor.getValue());
-
-        fireEvent(new SaveEvent(this, course));
+        try {
+            if (course == null) {
+                course = new Course();
+            }
+            binder.writeBean(course);
+            fireEvent(new SaveEvent(this, course));
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
+        }
     }
 
     // Events

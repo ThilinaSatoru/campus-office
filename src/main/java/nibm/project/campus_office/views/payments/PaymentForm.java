@@ -13,6 +13,9 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
 import nibm.project.campus_office.entity.Payment;
 import nibm.project.campus_office.entity.Student;
 import nibm.project.campus_office.enums.PaymentMethod;
@@ -36,6 +39,7 @@ public class PaymentForm extends FormLayout {
     Button delete = new Button("Delete");
     Button close = new Button("Cancel");
 
+    private final Binder<Payment> binder = new BeanValidationBinder<>(Payment.class);
     private Payment payment;
 
     public PaymentForm(List<Student> students) {
@@ -49,7 +53,62 @@ public class PaymentForm extends FormLayout {
 
         amount.setPrefixComponent(new Span("$"));
 
+        configureValidation();
+
         add(student, amount, dueDate, paymentDate, status, method, transactionId, notes, createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // Student - Required
+        binder.forField(student)
+                .asRequired("Student is required")
+                .bind(Payment::getStudent, Payment::setStudent);
+        student.setHelperText("Select student for this payment");
+
+        // Amount - Required, must be positive
+        binder.forField(amount)
+                .asRequired("Amount is required")
+                .withValidator(value -> value != null && value > 0,
+                        "Amount must be greater than 0")
+                .withConverter(
+                        value -> value != null ? BigDecimal.valueOf(value) : null,
+                        value -> value != null ? value.doubleValue() : 0.0)
+                .bind(Payment::getAmount, Payment::setAmount);
+        amount.setHelperText("Enter payment amount");
+        amount.setMin(0.01);
+        amount.setStep(0.01);
+
+        // Due Date - Required
+        binder.forField(dueDate)
+                .asRequired("Due date is required")
+                .bind(Payment::getDueDate, Payment::setDueDate);
+        dueDate.setHelperText("Select payment due date");
+
+        // Payment Date
+        binder.forField(paymentDate)
+                .bind(Payment::getPaymentDate, Payment::setPaymentDate);
+        paymentDate.setHelperText("Select actual payment date");
+
+        // Status - Required
+        binder.forField(status)
+                .asRequired("Status is required")
+                .bind(Payment::getStatus, Payment::setStatus);
+        status.setHelperText("Select payment status");
+
+        // Payment Method
+        binder.forField(method)
+                .bind(Payment::getMethod, Payment::setMethod);
+        method.setHelperText("Select payment method");
+
+        // Transaction ID
+        binder.forField(transactionId)
+                .bind(Payment::getTransactionId, Payment::setTransactionId);
+        transactionId.setHelperText("Enter transaction reference ID");
+
+        // Notes
+        binder.forField(notes)
+                .bind(Payment::getNotes, Payment::setNotes);
+        notes.setHelperText("Add any additional notes");
     }
 
     private Component createButtonsLayout() {
@@ -66,31 +125,19 @@ public class PaymentForm extends FormLayout {
 
     public void setPayment(Payment payment) {
         this.payment = payment;
-        if (payment != null) {
-            student.setValue(payment.getStudent());
-            amount.setValue(payment.getAmount() != null ? payment.getAmount().doubleValue() : 0.0);
-            paymentDate.setValue(payment.getPaymentDate());
-            dueDate.setValue(payment.getDueDate());
-            status.setValue(payment.getStatus());
-            method.setValue(payment.getMethod());
-            transactionId.setValue(payment.getTransactionId() != null ? payment.getTransactionId() : "");
-            notes.setValue(payment.getNotes() != null ? payment.getNotes() : "");
-        }
+        binder.readBean(payment);
     }
 
     private void validateAndSave() {
-        if (payment == null) payment = new Payment();
-
-        payment.setStudent(student.getValue());
-        payment.setAmount(BigDecimal.valueOf(amount.getValue()));
-        payment.setPaymentDate(paymentDate.getValue());
-        payment.setDueDate(dueDate.getValue());
-        payment.setStatus(status.getValue());
-        payment.setMethod(method.getValue());
-        payment.setTransactionId(transactionId.getValue());
-        payment.setNotes(notes.getValue());
-
-        fireEvent(new SaveEvent(this, payment));
+        try {
+            if (payment == null) {
+                payment = new Payment();
+            }
+            binder.writeBean(payment);
+            fireEvent(new SaveEvent(this, payment));
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
+        }
     }
 
     public static abstract class PaymentFormEvent extends ComponentEvent<PaymentForm> {

@@ -10,6 +10,10 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
+import com.vaadin.flow.data.validator.EmailValidator;
 import nibm.project.campus_office.entity.Instructor;
 
 public class InstructorForm extends FormLayout {
@@ -25,11 +29,49 @@ public class InstructorForm extends FormLayout {
     Button delete = new Button("Delete");
     Button close = new Button("Cancel");
 
+    private final Binder<Instructor> binder = new BeanValidationBinder<>(Instructor.class);
     private Instructor instructor;
 
     public InstructorForm() {
         addClassName("instructor-form");
+        configureValidation();
         add(firstName, lastName, email, phone, specialization, bio, createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // First Name - Required
+        binder.forField(firstName)
+                .asRequired("First name is required")
+                .bind(Instructor::getFirstName, Instructor::setFirstName);
+        firstName.setHelperText("Enter instructor's first name");
+
+        // Last Name - Required
+        binder.forField(lastName)
+                .asRequired("Last name is required")
+                .bind(Instructor::getLastName, Instructor::setLastName);
+        lastName.setHelperText("Enter instructor's last name");
+
+        // Email - Required with format validation
+        binder.forField(email)
+                .asRequired("Email is required")
+                .withValidator(new EmailValidator("Invalid email format"))
+                .bind(Instructor::getEmail, Instructor::setEmail);
+        email.setHelperText("Enter valid email address");
+
+        // Phone
+        binder.forField(phone)
+                .bind(Instructor::getPhone, Instructor::setPhone);
+        phone.setHelperText("Enter contact number");
+
+        // Specialization
+        binder.forField(specialization)
+                .bind(Instructor::getSpecialization, Instructor::setSpecialization);
+        specialization.setHelperText("Enter area of specialization");
+
+        // Bio
+        binder.forField(bio)
+                .bind(Instructor::getBio, Instructor::setBio);
+        bio.setHelperText("Enter instructor biography");
     }
 
     private Component createButtonsLayout() {
@@ -46,27 +88,19 @@ public class InstructorForm extends FormLayout {
 
     public void setInstructor(Instructor instructor) {
         this.instructor = instructor;
-        if (instructor != null) {
-            firstName.setValue(instructor.getFirstName() != null ? instructor.getFirstName() : "");
-            lastName.setValue(instructor.getLastName() != null ? instructor.getLastName() : "");
-            email.setValue(instructor.getEmail() != null ? instructor.getEmail() : "");
-            phone.setValue(instructor.getPhone() != null ? instructor.getPhone() : "");
-            specialization.setValue(instructor.getSpecialization() != null ? instructor.getSpecialization() : "");
-            bio.setValue(instructor.getBio() != null ? instructor.getBio() : "");
-        }
+        binder.readBean(instructor);
     }
 
     private void validateAndSave() {
-        if (instructor == null) instructor = new Instructor();
-
-        instructor.setFirstName(firstName.getValue());
-        instructor.setLastName(lastName.getValue());
-        instructor.setEmail(email.getValue());
-        instructor.setPhone(phone.getValue());
-        instructor.setSpecialization(specialization.getValue());
-        instructor.setBio(bio.getValue());
-
-        fireEvent(new SaveEvent(this, instructor));
+        try {
+            if (instructor == null) {
+                instructor = new Instructor();
+            }
+            binder.writeBean(instructor);
+            fireEvent(new SaveEvent(this, instructor));
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
+        }
     }
 
     public static abstract class InstructorFormEvent extends ComponentEvent<InstructorForm> {
