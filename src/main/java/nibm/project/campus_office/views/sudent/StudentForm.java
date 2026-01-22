@@ -11,6 +11,10 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
+import com.vaadin.flow.data.validator.EmailValidator;
 import nibm.project.campus_office.entity.Student;
 import nibm.project.campus_office.enums.StudentStatus;
 
@@ -29,6 +33,7 @@ public class StudentForm extends FormLayout {
     Button delete = new Button("Delete");
     Button close = new Button("Cancel");
 
+    private final Binder<Student> binder = new BeanValidationBinder<>(Student.class);
     private Student student;
 
     public StudentForm() {
@@ -37,8 +42,56 @@ public class StudentForm extends FormLayout {
         status.setItems(StudentStatus.values());
         status.setItemLabelGenerator(StudentStatus::name);
 
+        configureValidation();
+
         add(studentId, firstName, lastName, email, phone, status,
                 enrollmentDate, graduationDate, createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // Student ID - Required
+        binder.forField(studentId)
+                .asRequired("Student ID is required")
+                .bind(Student::getStudentId, Student::setStudentId);
+        studentId.setHelperText("Enter unique student ID");
+
+        // First Name - Required
+        binder.forField(firstName)
+                .asRequired("First name is required")
+                .bind(Student::getFirstName, Student::setFirstName);
+        firstName.setHelperText("Enter student's first name");
+
+        // Last Name
+        binder.forField(lastName)
+                .bind(Student::getLastName, Student::setLastName);
+        lastName.setHelperText("Enter student's last name");
+
+        // Email - Required with format validation
+        binder.forField(email)
+                .asRequired("Email is required")
+                .withValidator(new EmailValidator("Invalid email format"))
+                .bind(Student::getEmail, Student::setEmail);
+        email.setHelperText("Enter valid email address");
+
+        // Phone
+        binder.forField(phone)
+                .bind(Student::getPhone, Student::setPhone);
+        phone.setHelperText("Enter contact number");
+
+        // Status
+        binder.forField(status)
+                .bind(Student::getStatus, Student::setStatus);
+        status.setHelperText("Select student status");
+
+        // Enrollment Date
+        binder.forField(enrollmentDate)
+                .bind(Student::getEnrollmentDate, Student::setEnrollmentDate);
+        enrollmentDate.setHelperText("Select enrollment date");
+
+        // Graduation Date
+        binder.forField(graduationDate)
+                .bind(Student::getGraduationDate, Student::setGraduationDate);
+        graduationDate.setHelperText("Select graduation date");
     }
 
     private Component createButtonsLayout() {
@@ -55,31 +108,19 @@ public class StudentForm extends FormLayout {
 
     public void setStudent(Student student) {
         this.student = student;
-        if (student != null) {
-            studentId.setValue(student.getStudentId() != null ? student.getStudentId() : "");
-            firstName.setValue(student.getFirstName() != null ? student.getFirstName() : "");
-            lastName.setValue(student.getLastName() != null ? student.getLastName() : "");
-            email.setValue(student.getEmail() != null ? student.getEmail() : "");
-            phone.setValue(student.getPhone() != null ? student.getPhone() : "");
-            status.setValue(student.getStatus());
-            enrollmentDate.setValue(student.getEnrollmentDate());
-            graduationDate.setValue(student.getGraduationDate());
-        }
+        binder.readBean(student);
     }
 
     private void validateAndSave() {
-        if (student == null) student = new Student();
-
-        student.setStudentId(studentId.getValue());
-        student.setFirstName(firstName.getValue());
-        student.setLastName(lastName.getValue());
-        student.setEmail(email.getValue());
-        student.setPhone(phone.getValue());
-        student.setStatus(status.getValue());
-        student.setEnrollmentDate(enrollmentDate.getValue());
-        student.setGraduationDate(graduationDate.getValue());
-
-        fireEvent(new SaveEvent(this, student));
+        try {
+            if (student == null) {
+                student = new Student();
+            }
+            binder.writeBean(student);
+            fireEvent(new SaveEvent(this, student));
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
+        }
     }
 
     // Events
