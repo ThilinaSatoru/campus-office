@@ -58,7 +58,6 @@ public class UserListView extends VerticalLayout {
         form.addSaveListener(this::saveUser);
         form.addDeleteListener(this::deleteUser);
         form.addCloseListener(e -> closeEditor());
-        form.addValidationErrorListener(this::handleValidationError);
         form.addPasswordResetListener(this::resetPassword);
     }
 
@@ -138,8 +137,4 @@ public class UserListView extends VerticalLayout {
         }
     }
 
-    private void handleValidationError(UserForm.ValidationErrorEvent event) {
-        Notification.show(event.getMessage())
-                .addThemeVariants(NotificationVariant.LUMO_ERROR);
-    }
 }
