@@ -11,6 +11,9 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.NumberField;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
 import nibm.project.campus_office.entity.Course;
 import nibm.project.campus_office.entity.Enrollment;
 import nibm.project.campus_office.entity.Student;
@@ -32,6 +35,7 @@ public class EnrollmentForm extends FormLayout {
     Button delete = new Button("Delete");
     Button close = new Button("Cancel");
 
+    private final Binder<Enrollment> binder = new BeanValidationBinder<>(Enrollment.class);
     private Enrollment enrollment;
 
     public EnrollmentForm(List<Student> students, List<Course> courses) {
@@ -47,7 +51,54 @@ public class EnrollmentForm extends FormLayout {
         grade.setMin(0);
         grade.setMax(100);
 
+        configureValidation();
+
         add(student, course, enrollmentDate, status, grade, completionDate, feedback, createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // Student - Required
+        binder.forField(student)
+                .asRequired("Student is required")
+                .bind(Enrollment::getStudent, Enrollment::setStudent);
+        student.setHelperText("Select student to enroll");
+
+        // Course - Required
+        binder.forField(course)
+                .asRequired("Course is required")
+                .bind(Enrollment::getCourse, Enrollment::setCourse);
+        course.setHelperText("Select course for enrollment");
+
+        // Enrollment Date - Required
+        binder.forField(enrollmentDate)
+                .asRequired("Enrollment date is required")
+                .bind(Enrollment::getEnrollmentDate, Enrollment::setEnrollmentDate);
+        enrollmentDate.setHelperText("Select enrollment date");
+
+        // Status - Required
+        binder.forField(status)
+                .asRequired("Status is required")
+                .bind(Enrollment::getStatus, Enrollment::setStatus);
+        status.setHelperText("Select enrollment status");
+
+        // Grade - Optional, must be 0-100 if provided
+        binder.forField(grade)
+                .withValidator(value -> value == null || (value >= 0 && value <= 100),
+                        "Grade must be between 0 and 100")
+                .bind(Enrollment::getGrade, Enrollment::setGrade);
+        grade.setHelperText("Enter grade percentage (0-100)");
+        grade.setStep(0.1);
+        grade.setStepButtonsVisible(true);
+
+        // Completion Date
+        binder.forField(completionDate)
+                .bind(Enrollment::getCompletionDate, Enrollment::setCompletionDate);
+        completionDate.setHelperText("Select completion date (if applicable)");
+
+        // Feedback
+        binder.forField(feedback)
+                .bind(Enrollment::getFeedback, Enrollment::setFeedback);
+        feedback.setHelperText("Enter feedback or comments");
     }
 
     private Component createButtonsLayout() {
@@ -64,29 +115,19 @@ public class EnrollmentForm extends FormLayout {
 
     public void setEnrollment(Enrollment enrollment) {
         this.enrollment = enrollment;
-        if (enrollment != null) {
-            student.setValue(enrollment.getStudent());
-            course.setValue(enrollment.getCourse());
-            enrollmentDate.setValue(enrollment.getEnrollmentDate());
-            completionDate.setValue(enrollment.getCompletionDate());
-            status.setValue(enrollment.getStatus());
-            grade.setValue(enrollment.getGrade());
-            feedback.setValue(enrollment.getFeedback() != null ? enrollment.getFeedback() : "");
-        }
+        binder.readBean(enrollment);
     }
 
     private void validateAndSave() {
-        if (enrollment == null) enrollment = new Enrollment();
-
-        enrollment.setStudent(student.getValue());
-        enrollment.setCourse(course.getValue());
-        enrollment.setEnrollmentDate(enrollmentDate.getValue());
-        enrollment.setCompletionDate(completionDate.getValue());
-        enrollment.setStatus(status.getValue());
-        enrollment.setGrade(grade.getValue());
-        enrollment.setFeedback(feedback.getValue());
-
-        fireEvent(new SaveEvent(this, enrollment));
+        try {
+            if (enrollment == null) {
+                enrollment = new Enrollment();
+            }
+            binder.writeBean(enrollment);
+            fireEvent(new SaveEvent(this, enrollment));
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
+        }
     }
 
     public static abstract class EnrollmentFormEvent extends ComponentEvent<EnrollmentForm> {

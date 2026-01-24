@@ -11,6 +11,9 @@ import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.ValidationException;
 import nibm.project.campus_office.entity.Interaction;
 import nibm.project.campus_office.entity.Student;
 import nibm.project.campus_office.enums.InteractionType;
@@ -30,6 +33,7 @@ public class InteractionForm extends FormLayout {
     Button delete = new Button("Delete");
     Button close = new Button("Cancel");
 
+    private final Binder<Interaction> binder = new BeanValidationBinder<>(Interaction.class);
     private Interaction interaction;
 
     public InteractionForm(List<Student> students) {
@@ -40,7 +44,45 @@ public class InteractionForm extends FormLayout {
 
         type.setItems(InteractionType.values());
 
+        configureValidation();
+
         add(student, type, subject, interactionDate, contactedBy, notes, createButtonsLayout());
+    }
+
+    private void configureValidation() {
+        // Student - Required
+        binder.forField(student)
+                .asRequired("Student is required")
+                .bind(Interaction::getStudent, Interaction::setStudent);
+        student.setHelperText("Select student for this interaction");
+
+        // Type - Required
+        binder.forField(type)
+                .asRequired("Interaction type is required")
+                .bind(Interaction::getType, Interaction::setType);
+        type.setHelperText("Select type of interaction");
+
+        // Subject - Required
+        binder.forField(subject)
+                .asRequired("Subject is required")
+                .bind(Interaction::getSubject, Interaction::setSubject);
+        subject.setHelperText("Enter interaction subject");
+
+        // Interaction Date - Required
+        binder.forField(interactionDate)
+                .asRequired("Interaction date is required")
+                .bind(Interaction::getInteractionDate, Interaction::setInteractionDate);
+        interactionDate.setHelperText("Select date and time of interaction");
+
+        // Contacted By
+        binder.forField(contactedBy)
+                .bind(Interaction::getContactedBy, Interaction::setContactedBy);
+        contactedBy.setHelperText("Enter name of person who made contact");
+
+        // Notes
+        binder.forField(notes)
+                .bind(Interaction::getNotes, Interaction::setNotes);
+        notes.setHelperText("Enter additional notes or details");
     }
 
     private Component createButtonsLayout() {
@@ -57,27 +99,19 @@ public class InteractionForm extends FormLayout {
 
     public void setInteraction(Interaction interaction) {
         this.interaction = interaction;
-        if (interaction != null) {
-            student.setValue(interaction.getStudent());
-            type.setValue(interaction.getType());
-            subject.setValue(interaction.getSubject() != null ? interaction.getSubject() : "");
-            notes.setValue(interaction.getNotes() != null ? interaction.getNotes() : "");
-            interactionDate.setValue(interaction.getInteractionDate());
-            contactedBy.setValue(interaction.getContactedBy() != null ? interaction.getContactedBy() : "");
-        }
+        binder.readBean(interaction);
     }
 
     private void validateAndSave() {
-        if (interaction == null) interaction = new Interaction();
-
-        interaction.setStudent(student.getValue());
-        interaction.setType(type.getValue());
-        interaction.setSubject(subject.getValue());
-        interaction.setNotes(notes.getValue());
-        interaction.setInteractionDate(interactionDate.getValue());
-        interaction.setContactedBy(contactedBy.getValue());
-
-        fireEvent(new SaveEvent(this, interaction));
+        try {
+            if (interaction == null) {
+                interaction = new Interaction();
+            }
+            binder.writeBean(interaction);
+            fireEvent(new SaveEvent(this, interaction));
+        } catch (ValidationException e) {
+            // Validation errors are automatically displayed on fields
+        }
     }
 
     public static abstract class InteractionFormEvent extends ComponentEvent<InteractionForm> {
