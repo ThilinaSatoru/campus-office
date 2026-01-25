@@ -1,5 +1,6 @@
 package nibm.project.campus_office.views;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.avatar.Avatar;
@@ -15,6 +16,7 @@ import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import nibm.project.campus_office.security.SecurityService;
 import nibm.project.campus_office.views.Dashboard.DashboardView;
 import nibm.project.campus_office.views.course.CourseListView;
@@ -24,8 +26,12 @@ import nibm.project.campus_office.views.interactions.InteractionListView;
 import nibm.project.campus_office.views.payments.PaymentListView;
 import nibm.project.campus_office.views.sudent.StudentListView;
 import nibm.project.campus_office.views.user.UserListView;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @PermitAll
 public class MainLayout extends AppLayout {
@@ -99,15 +105,57 @@ public class MainLayout extends AppLayout {
     private void createDrawer() {
         SideNav nav = new SideNav();
 
-        nav.addItem(new SideNavItem("Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create()));
-        nav.addItem(new SideNavItem("Students", StudentListView.class, VaadinIcon.ACADEMY_CAP.create()));
-        nav.addItem(new SideNavItem("Courses", CourseListView.class, VaadinIcon.BOOK.create()));
-        nav.addItem(new SideNavItem("Instructors", InstructorListView.class, VaadinIcon.USER_STAR.create()));
-        nav.addItem(new SideNavItem("Enrollments", EnrollmentListView.class, VaadinIcon.CLIPBOARD_TEXT.create()));
-        nav.addItem(new SideNavItem("Interactions", InteractionListView.class, VaadinIcon.COMMENTS.create()));
-        nav.addItem(new SideNavItem("Payments", PaymentListView.class, VaadinIcon.DOLLAR.create()));
-        nav.addItem(new SideNavItem("Users", UserListView.class, VaadinIcon.USER.create()));
+        // Add menu items only if user has access
+        addItemIfAuthorized(nav, "Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create());
+        addItemIfAuthorized(nav, "Students", StudentListView.class, VaadinIcon.ACADEMY_CAP.create());
+        addItemIfAuthorized(nav, "Courses", CourseListView.class, VaadinIcon.BOOK.create());
+        addItemIfAuthorized(nav, "Instructors", InstructorListView.class, VaadinIcon.USER_STAR.create());
+        addItemIfAuthorized(nav, "Enrollments", EnrollmentListView.class, VaadinIcon.CLIPBOARD_TEXT.create());
+        addItemIfAuthorized(nav, "Interactions", InteractionListView.class, VaadinIcon.COMMENTS.create());
+        addItemIfAuthorized(nav, "Payments", PaymentListView.class, VaadinIcon.DOLLAR.create());
+        addItemIfAuthorized(nav, "Users", UserListView.class, VaadinIcon.USER.create());
 
         addToDrawer(nav);
+    }
+
+    private void addItemIfAuthorized(SideNav nav, String label, Class<? extends Component> viewClass, Component icon) {
+        if (hasAccess(viewClass)) {
+            nav.addItem(new SideNavItem(label, viewClass, icon));
+        }
+    }
+
+    private boolean hasAccess(Class<? extends Component> viewClass) {
+        // Check if class has @PermitAll - everyone can access
+        if (viewClass.isAnnotationPresent(PermitAll.class)) {
+            return true;
+        }
+
+        // Check if class has @RolesAllowed
+        RolesAllowed rolesAllowed = viewClass.getAnnotation(RolesAllowed.class);
+        if (rolesAllowed == null) {
+            return false; // No security annotation, deny access
+        }
+
+        // Get current user roles
+        Set<String> userRoles = getUserRoles();
+
+        // Check if user has any of the required roles
+        for (String requiredRole : rolesAllowed.value()) {
+            if (userRoles.contains("ROLE_" + requiredRole) || userRoles.contains(requiredRole)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Set<String> getUserRoles() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof UserDetails) {
+            return ((UserDetails) principal).getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toSet());
+        }
+        return Set.of();
     }
 }
